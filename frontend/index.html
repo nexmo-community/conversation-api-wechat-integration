@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    #login, #messages {
+      width: 80%;
+      height: 300px;
+    }
+
+    #messages {
+      display: none;
+    }
+  </style>
+  <script src="./nexmo-client/dist/nexmoClient.js"></script>
+</head>
+<body>
+
+  <form id="login">
+    <h1>Login</h1>
+    <input type="text" name="username" value="">
+    <input type="submit" value="Login" />
+  </form>
+
+  <section id="messages">
+    <h1>Messages</h1>
+
+    <div id="messageFeed"></div>
+
+    <textarea id="messageTextarea"></textarea>
+    <br>
+    <button id="send">Send</button>
+  </section>
+
+  <script>
+    const USER_JWT = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE1NzA3NzEyOTcsImp0aSI6ImZmYTIxYWQwLWViZTYtMTFlOS1hNjAwLWFiYWVmM2YxNmM1YyIsInN1YiI6IldFQ0hBVF9BR0VOVCIsImV4cCI6MTU3MDg1NzY5NywiYWNsIjp7InBhdGhzIjp7Ii8qL3VzZXJzLyoqIjp7fSwiLyovY29udmVyc2F0aW9ucy8qKiI6e30sIi8qL3Nlc3Npb25zLyoqIjp7fSwiLyovZGV2aWNlcy8qKiI6e30sIi8qL2ltYWdlLyoqIjp7fSwiLyovbWVkaWEvKioiOnt9LCIvKi9hcHBsaWNhdGlvbnMvKioiOnt9LCIvKi9wdXNoLyoqIjp7fSwiLyova25vY2tpbmcvKioiOnt9fX0sImFwcGxpY2F0aW9uX2lkIjoiZjUzODFmNGQtMTY2OC00YWIzLWExMzctZjc3NTI3NThmMjFmIn0.fJlvzDHkXqsmaYwZXgzn9YHcakhy1pRNzo-A1j0oEdN7OTj5GcnePY5gA81qJEERIgXBT3d59llVhUKcQckBSy-GMv8W-4x1RpooWAYJRBXRI480g6IxL1mktz3iC68hx5vprBjZYaoB8Svw601QxWpXAQPLlOHCqcWZXeDxCcRZzLLtQ8SmBUj5_XU7VyQ0cml4RW_WxMEc61OcMoP-NmMCa5KRmHRCXoGSXTM1CtthCTISWKkvZZgr2ec53LsAsyA5OOPD_pmyUNvVrfOSMFUfeLSONvfwUp0Xwr2Sbcm4LJO40hZjUdGawx3ToBhyIbRyyog4UIRMziKaVxAkGQ';
+    const YOUR_CONVERSATION_ID = 'CON-acf7518a-9bf1-4cd1-b4d0-85e3974e0eb3';
+    const CUSTOM_EVENT = 'wechat:message';
+    let TO = null;
+
+    class ChatApp {
+      constructor() {
+        this.messageTextarea = document.getElementById('messageTextarea')
+        this.messageFeed = document.getElementById('messageFeed')
+        this.sendButton = document.getElementById('send')
+        this.loginForm = document.getElementById('login')
+        this.setupUserEvents()
+      }
+
+      errorLogger(error) {
+        console.log(error)
+      }
+
+      eventLogger(event) {
+        return () => {
+          console.log("'%s' event was sent", event)
+        }
+      }
+
+      authenticate() {
+        return USER_JWT
+      }
+
+      setupConversationEvents(conversation) {
+        this.conversation = conversation
+        console.log('*** Conversation Retrieved', conversation)
+        console.log('*** Conversation Member', conversation.me)
+
+        // Bind to events on the conversation
+        conversation.on(CUSTOM_EVENT, (sender, message) => {
+          TO = (sender === undefined)?message.body.from: TO;
+          sender = (sender === undefined)? message.body.from: sender.user.name;
+          console.log('*** Message received', sender, message)
+          const date = new Date(Date.parse(message.timestamp))
+          const text = `${sender} @ ${date}: <b>${message.body.content}</b><br>`
+          this.messageFeed.innerHTML = text + this.messageFeed.innerHTML
+        })
+      }
+
+      joinConversation(userToken) {
+        new NexmoClient({ debug: false })
+          .login(userToken)
+          .then(app => {
+              console.log('*** Logged into app', app)
+              return app.getConversation(YOUR_CONVERSATION_ID)
+          })
+          .then(this.setupConversationEvents.bind(this))
+          .catch(this.errorLogger)
+      }
+
+      setupUserEvents() {
+        this.sendButton.addEventListener('click', () => {
+          const body = { from: "WECHAT_AGENT", to: TO, content: this.messageTextarea.value, direction: "outbound" }
+          this.conversation.sendCustomEvent({ type: CUSTOM_EVENT, body }).then(() => {
+            this.eventLogger('text')();
+            this.messageTextarea.value = '';
+          }).catch(this.errorLogger)
+        })
+
+        this.loginForm.addEventListener('submit', (event) => {
+          event.preventDefault()
+          const userToken = this.authenticate()
+          if (userToken) {
+            document.getElementById('messages').style.display = 'block'
+            document.getElementById('login').style.display = 'none'
+            this.joinConversation(userToken)
+          }
+        })
+      }
+    }
+
+    new ChatApp()
+  </script>
+
+</body>
+</html>
