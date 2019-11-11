@@ -44,29 +44,19 @@ const conversationId = process.env.NEXMO_CONVERSATION_ID;
  * @param {*} content - Content for the message
  */
 const dispatchWeChatEvent = (wechat, direction = 'inbound') => {
-  var options = {
-    uri: `https://api.nexmo.com/beta/conversations/${conversationId}/events`,
-    method: 'POST',
-    headers: {
-      Authorization: 'Bearer ' + jwt,
-      Accept: 'application/json',
-      'Content-Type': 'application/json'
-    },
-    json: {
-      type: 'custom:wechat:message',
-      body: {
-        to: wechat.getTo(),
-        from: wechat.getFrom(),
-        content: wechat.getContent(),
-        direction
-      }
+  const params = {
+    type: 'custom:wechat:message',
+    body: {
+      to: wechat.getTo(),
+      from: wechat.getFrom(),
+      content: wechat.getContent(),
+      direction
     }
   };
 
-  request(options, (error, response, body) => {
-    if (!error && response.statusCode == 200) {
-      const reqBody = JSON.parse(response.request.body).body;
-      console.log('successfuly sent message to: ' + reqBody.to + ', with message: ' + reqBody.content);
+  nexmo.conversations.events.create(conversationId, params, (err, data) => {
+    if (!err) {
+      console.log('successfuly sent message to: ' + params.body.to + ', with message: ' + params.body.content);
     }
   });
 };
@@ -111,5 +101,7 @@ router.post('/', async function(req, res, next) {
 
   res.status(200).end();
 });
+
+dispatchWeChatEvent(new WeChatMessageEvent('Roy', 'Test', 'Test'));
 
 module.exports = router;
